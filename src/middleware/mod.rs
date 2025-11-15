@@ -15,3 +15,9 @@ pub mod rate_limit;
 
 /// Circuit breaker middleware for fault tolerance
 pub mod circuit_breaker;
+
+/// Chaos Middleware randomly injects failures to test system resilience
+pub mod chaos;
+
+/// Fuzzing Middleware injects malicious/edge-case inputs to detect
+pub mod fuzzing;

@@ -1,21 +1,47 @@
 [package]
 name = "event_chains"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 authors = ["Jesco <jesco@gamedevmadeeasy.com>"]
 license = "MIT"
 description = "A flexible event processing pipeline with middleware support"
 repository = "https://github.com/RPDevJesco/event_chains"
 keywords = ["events", "pipeline", "middleware", "chain"]
-categories = ["development-tools", "rust-patterns"]
+categories = ["development-tools", "rust-patterns", "development-tools::testing"]
 
 [dependencies]
 hashbrown = "0.16.0"
 
+[features]
+default = []
+
+# Individual production middleware (opt-in)
+logging = []
+timing = []
+retry = []
+metrics = []
+rate_limit = []
+circuit_breaker = []
+
+# Convenience bundle for all production middleware
+middleware = ["logging", "timing", "retry", "metrics", "rate_limit", "circuit_breaker"]
+
+# Testing-only middleware (NEVER use in production!)
+chaos = []
+fuzzing = []
+adversarial = ["chaos", "fuzzing"]
+
 [[example]]
 name = "besteffort_demo"
 path = "examples/besteffort_demo.rs"
+required-features = ["logging", "retry"]
 
 [[example]]
 name = "integration_test"
 path = "examples/integration_test.rs"
+required-features = ["middleware"]
+
+[[example]]
+name = "adversarial_demo"
+path = "examples/adversarial_demo.rs"
+required-features = ["adversarial", "middleware"]

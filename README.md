@@ -1,3 +1,5 @@
+[![Crates.io](https://img.shields.io/crates/v/event_chains.svg)](https://crates.io/crates/event_chains)
+[![Documentation](https://docs.rs/event_chains/badge.svg)](https://docs.rs/event_chains)
 # Event Chains
 
 A flexible and robust event processing pipeline library for Rust with middleware support and configurable fault tolerance.

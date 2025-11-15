@@ -1,13 +1,13 @@
 [package]
 name = "event_chains"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Jesco <jesco@gamedevmadeeasy.com>"]
 license = "MIT"
 description = "A flexible event processing pipeline with middleware support"
 repository = "https://github.com/RPDevJesco/event_chains"
 keywords = ["events", "pipeline", "middleware", "chain"]
-categories = ["development-tools::cargo-plugins"]
+categories = ["development-tools", "rust-patterns"]
 
 [dependencies]
 hashbrown = "0.16.0"

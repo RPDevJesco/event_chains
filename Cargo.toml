@@ -1,0 +1,13 @@
+[package]
+name = "event_chains"
+version = "0.1.0"
+edition = "2024"
+authors = ["Jesco <jesco@gamedevmadeeasy.com>"]
+license = "MIT"
+description = "A flexible event processing pipeline with middleware support"
+repository = "https://github.com/yourusername/event_chains"  # Optional but recommended
+keywords = ["events", "pipeline", "middleware", "chain"]  # Max 5
+categories = ["asynchronous"]  # Optional
+
+[dependencies]
+hashbrown = "0.16.0"

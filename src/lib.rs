@@ -21,6 +21,7 @@
 
 pub mod core;
 pub mod events;
+pub mod middleware;
 
 // Convenience re-exports
 pub use core::event_chain::EventChain;

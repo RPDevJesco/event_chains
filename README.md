@@ -140,7 +140,7 @@ let mut context = EventContext::new();
 
 // Set values
 context.set("user_id", 42u64);
-context.set("email", "user@example.com".to_string());
+context.set("email", "user@examples.com".to_string());
 
 // Get values
 let user_id: u64 = context.get("user_id").unwrap();
@@ -156,19 +156,22 @@ if context.has("user_id") {
 
 Configure how your chain handles failures:
 ```rust
-// Strict: Stop on first failure (default)
+// Strict: Stop execution immediately on first failure (default)
+// Semantic Intent: Ensure critical tasks halt when any failure appears.
 let chain = EventChain::new()
     .event(Event1)
     .event(Event2)
     .with_fault_tolerance(FaultToleranceMode::Strict);
 
-// Lenient: Continue execution, collect all failures
+// Lenient: Continue execution, collect failures for later review
+// Semantic Intent: Handle non-critical failures where some operations can fail without compromising the overall goal
 let chain = EventChain::new()
     .event(Event1)
     .event(Event2)
     .with_fault_tolerance(FaultToleranceMode::Lenient);
 
-// BestEffort: Continue execution, collect all failures
+// BestEffort: Attempt all events regardless of failures, maximum resilience
+// Semantic Intent: Ensure all cleanup/recovery operations are attempted, even if some fail
 let chain = EventChain::new()
     .event(Event1)
     .event(Event2)
@@ -249,6 +252,48 @@ fn main() {
     println!("Result: {:?}", result.status);
 }
 ```
+
+# Built-in Middleware
+- **LoggingMiddleware** - Logs event execution with configurable log levels.
+- **TimingMiddleware** - Measures and logs event execution time.
+- **RetryMiddleware** - Retries failed events with configurable backoff strategies.
+- **MetricsMiddleware** - Collects execution statistics for events.
+- **RateLimitMiddleware** - Enforces rate limits on event execution using token bucket algorithm.
+- **CircuitBreakerMiddleware** - Implements the circuit breaker pattern to prevent cascading failures.
+
+## Combining Middleware
+
+Middleware can be stacked together. Remember: **LIFO execution order** (last added executes first).
+
+```rust
+use event_chains::middleware::*;
+
+let metrics = metrics::MetricsMiddleware::new();
+
+let chain = EventChain::new()
+    .middleware(metrics.clone())                           // 1st: Collect metrics
+    .middleware(timing::TimingMiddleware::new())           // 2nd: Measure time
+    .middleware(
+        circuit_breaker::CircuitBreakerMiddleware::new()   // 3rd: Circuit breaker
+            .with_failure_threshold(5)
+    )
+    .middleware(
+        retry::RetryMiddleware::exponential(              // 4th: Retry logic
+            3,
+            Duration::from_millis(100),
+            Duration::from_secs(2),
+        )
+    )
+    .middleware(logging::LoggingMiddleware::info())        // 5th: Logging (innermost)
+    .event(MyEvent);
+
+// Execution flow:
+// Metrics → Timing → CircuitBreaker → Retry → Logging → Event
+```
+
+## Thread Safety
+
+All middleware is thread-safe and can be shared across threads using `Arc`:
 
 ## Use Cases (Non-exhaustive list)
 

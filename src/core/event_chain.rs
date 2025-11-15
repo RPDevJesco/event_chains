@@ -16,6 +16,12 @@ use crate::events::event_middleware::EventMiddleware;
 /// * **Events**: Execute in FIFO order (first added → first executed)
 /// * **Middleware**: Execute in LIFO order (last added → first executed)
 ///
+/// # Fault Tolerance Modes
+///
+/// * **Strict**: Stop on any failure (event or middleware)
+/// * **Lenient**: Continue on all failures, collect for review
+/// * **BestEffort**: Continue on event failures, but stop on middleware failures
+///
 /// # Example
 ///
 /// ```ignore
@@ -28,7 +34,7 @@ use crate::events::event_middleware::EventMiddleware;
 ///     .middleware(TimingMiddleware)     // Inner layer
 ///     .event(ValidateEvent)             // Runs 1st
 ///     .event(ProcessEvent)              // Runs 2nd
-///     .with_fault_tolerance(FaultToleranceMode::Lenient);
+///     .with_fault_tolerance(FaultToleranceMode::BestEffort);
 ///
 /// let mut context = EventContext::new();
 /// let result = chain.execute(&mut context);
@@ -53,17 +59,28 @@ impl EventChain {
     ///
     /// # Modes
     ///
-    /// * [`FaultToleranceMode::Strict`] - Stop execution on first failure (default)
-    /// * [`FaultToleranceMode::Lenient`] - Continue execution, collect all failures
-    /// * [`FaultToleranceMode::BestEffort`] - Continue execution, collect all failures
+    /// * [`FaultToleranceMode::Strict`] - Stop on any failure (default)
+    /// * [`FaultToleranceMode::Lenient`] - Continue on all failures, collect for review
+    /// * [`FaultToleranceMode::BestEffort`] - Continue on event failures, stop on middleware failures
+    ///
+    /// # BestEffort Mode Details
+    ///
+    /// BestEffort treats event and middleware failures differently:
+    /// - **Event failures**: Continue execution (best effort to complete all operations)
+    /// - **Middleware failures**: Stop immediately (infrastructure must be reliable)
+    ///
+    /// This is useful for cleanup operations where you want to attempt all cleanup steps,
+    /// but require infrastructure (logging, auditing, transactions) to work correctly.
     ///
     /// # Example
     ///
     /// ```ignore
+    /// // Cleanup with BestEffort: Try all cleanup steps, but audit must work
     /// let chain = EventChain::new()
-    ///     .event(Event1)
-    ///     .event(Event2)
-    ///     .with_fault_tolerance(FaultToleranceMode::Lenient);
+    ///     .middleware(AuditMiddleware)      // Must succeed
+    ///     .event(CloseConnection)           // Best effort
+    ///     .event(DeleteTempFiles)           // Best effort
+    ///     .with_fault_tolerance(FaultToleranceMode::BestEffort);
     /// ```
     pub fn with_fault_tolerance(mut self, mode: FaultToleranceMode) -> Self {
         self.fault_tolerance = mode;
@@ -93,7 +110,7 @@ impl EventChain {
 
     /// Add a middleware to the chain (fluent API - consumes self)
     ///
-    /// # ⚠️ Execution Order: LIFO (Last In, First Out)
+    /// #  Execution Order: LIFO (Last In, First Out)
     ///
     /// Middlewares execute in **reverse order** of registration - the last middleware
     /// added will be the **first** to execute (outermost layer).
@@ -137,7 +154,7 @@ impl EventChain {
 
     /// Legacy method for adding boxed middleware (mutable reference API)
     ///
-    /// # ⚠️ Execution Order: LIFO (Last In, First Out)
+    /// # ️ Execution Order: LIFO (Last In, First Out)
     ///
     /// Middlewares execute in **reverse order** of registration.
     /// See [`middleware()`](Self::middleware) for detailed explanation.
@@ -150,6 +167,12 @@ impl EventChain {
     ///
     /// Events execute in registration order (FIFO), with each event wrapped
     /// by the middleware stack in reverse order (LIFO).
+    ///
+    /// # Fault Tolerance Behavior
+    ///
+    /// * **Strict**: Stops on any failure (event or middleware)
+    /// * **Lenient**: Continues on all failures, collects them for review
+    /// * **BestEffort**: Continues on event failures, stops on middleware failures
     ///
     /// # Returns
     ///
@@ -175,24 +198,44 @@ impl EventChain {
             let result = self.execute_with_middleware(event.as_ref(), context);
 
             if result.is_failure() {
-                let failure = EventFailure::new(
-                    event.name().to_string(),
-                    result.get_error().unwrap_or("Unknown error").to_string(),
-                );
-                failures.push(failure);
+                // Determine if this is a middleware or event failure
+                let (is_middleware_failure, error_msg) = match result.get_failure_info() {
+                    Some((is_mw, msg)) => (is_mw, msg.to_string()),
+                    None => (false, "Unknown error".to_string()),
+                };
 
+                let failure = if is_middleware_failure {
+                    EventFailure::middleware_failure(event.name().to_string(), error_msg)
+                } else {
+                    EventFailure::new(event.name().to_string(), error_msg)
+                };
+
+                failures.push(failure.clone());
+
+                // Decide whether to continue based on fault tolerance mode and failure type
                 match self.fault_tolerance {
                     FaultToleranceMode::Strict => {
+                        // Strict: Stop on any failure
                         return ChainResult::failure(failures);
                     }
-                    FaultToleranceMode::Lenient | FaultToleranceMode::BestEffort => {
-                        // Continue execution
+                    FaultToleranceMode::Lenient => {
+                        // Lenient: Continue on all failures
                         continue;
+                    }
+                    FaultToleranceMode::BestEffort => {
+                        if is_middleware_failure {
+                            // BestEffort: Stop on middleware failures
+                            return ChainResult::failure(failures);
+                        } else {
+                            // BestEffort: Continue on event failures
+                            continue;
+                        }
                     }
                 }
             }
         }
 
+        // Determine final result
         if failures.is_empty() {
             ChainResult::success()
         } else {

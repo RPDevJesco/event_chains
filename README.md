@@ -248,7 +248,7 @@ fn main() {
 }
 ```
 
-## Use Cases (Non exhaustive list)
+## Use Cases (Non-exhaustive list)
 
 - **Request Processing Pipelines** - Validation → Authentication → Business Logic → Response
 - **Data Processing** - Extract → Transform → Validate → Load

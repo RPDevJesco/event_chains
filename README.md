@@ -17,7 +17,7 @@ A flexible and robust event processing pipeline library for Rust with middleware
 Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
-event_chains = "0.1.0"
+event_chains = "0.2.1"
 ```
 
 ## Quick Start

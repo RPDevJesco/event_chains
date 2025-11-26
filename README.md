@@ -10,7 +10,6 @@ A flexible and robust event processing pipeline library for Rust with middleware
 -  **Middleware Support** - Wrap events with reusable middleware (logging, timing, auth, etc.)
 -  **Fault Tolerance** - Configure how your chain handles failures (strict, lenient, best-effort)
 -  **Flexible Context** - Pass typed data between events using a type-safe context
--  **Zero Cost Abstractions** - Efficient execution with minimal overhead
 
 ## Installation
 
@@ -302,6 +301,13 @@ All middleware is thread-safe and can be shared across threads using `Arc`:
 - **Workflow Orchestration** - Multi-step business processes with rollback support
 - **Event Sourcing** - Chain of domain events with middleware for logging/persistence
 - **Plugin Systems** - Extensible processing with middleware hooks
+
+## Anti-Patterns
+- **Events that do little work** - Events that do small tasks or very little work is going to cause a bit of overhead to appear
+- **Middleware added in wrong order** - Middlware should always be in Last In, First Out order (0,1,2,3,4) will be executed in (4,3,2,1,0) order.
+- **Pulling everything and not needing it** - Only pull the middleware you need into your project to reduce bloat
+- **Confusing purpose of middleware and events** - Events are always core logic for the application, Middleware are always your cross cutting concerns
+- **Running orchestration chain asynchronously** - The event chains pattern is sequential in nature and is not built for asynchronous workloads, run separate chains in parallel instead of asynchronously.
 
 ## License
 
